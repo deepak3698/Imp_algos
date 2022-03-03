@@ -1,0 +1,15 @@
+import re
+data=input_string
+dates=re.findall('\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}',input_string)
+"(\d{2})\s+([A-Za-z]){3,}\s+\d{4}"
+tokens=data.split(" ")
+for i in dates:
+    if re.search('\d{4}-\d{2}-\d{2}',i,re.IGNORECASE):
+        found=re.search('\d{4}-\d{2}-\d{2}',i,re.IGNORECASE).group()
+        date_final=datetime.strptime(found, '%Y-%m-%d').strftime("%d %B %Y")
+        data=re.sub('\d{4}-\d{2}-\d{2}',date_final,data)
+    elif re.search('\d{2}/\d{2}/\d{4}',i,re.IGNORECASE):
+        print(i)
+        found=re.search('\d{2}/\d{2}/\d{4}',i,re.IGNORECASE).group()
+        date_final=datetime.strptime(i, '%m/%d/%Y').strftime("%m %B %Y")
+        data=re.sub('\d{2}/\d{2}/\d{4}',date_final,data)
