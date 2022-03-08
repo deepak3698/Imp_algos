@@ -1,0 +1,77 @@
+
+import re
+import datefinder
+from datetime import datetime
+data="\nP.O 123445,pitrr dd 15222-0330\n done \n 29 june,2022\n"
+dates_possiblities=re.findall('[\n\t]+\s*[A-Za-z0-9]+.*?\d+\s*\n',data)
+date=""
+for date_p in dates_possiblities:
+    date_re=re.search('\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}|[A-Za-z]{3,12}\s*\d{1,2}\s*[-,]\s*\d{4}|\d{1,2}\s*[A-Za-z]{3,12}\s*[-,]\s*\d{4}',date_p)
+    if date_re:
+        date=date_re.group()
+if date!='':
+    datetime_date=list(datefinder.find_dates(date))
+    current_year=datetime_date[0].year
+    date=datetime.strftime(datetime_date[0], '%d %B,%Y')
+    print(date,current_year)
+
+
+template_input="""You can also call us at [CustomerCareNumber],[CustomerCareHours],to provide us with the information by [ReturnMailDate].TTY users should 
+call [CustomerCareTTY]. If you don't contact [PlanName] by [ReturnMailDate], we will assume the above information
+is correct and you will owe a late Enrollment Penalty (LEP).
+
+Sincerly,
+
+"""
+
+proof_input="""You can also call us at [CustomerCareNumber],[CustomerCareHours],to provide us with the information by [ReturnMailDate].TTY users should 
+call [CustomerCareTTY]. If you don't contact EDWP by 20 sept,2022 , we will assume the above information
+is correct and you will owe a late Enrollment Penalty (LEP).
+
+Sincerly,
+
+"""
+import math
+WORD = re.compile(r"\w+")
+
+
+def get_cosine(vec1, vec2):
+    intersection = set(vec1.keys()) & set(vec2.keys())
+    numerator = sum([vec1[x] * vec2[x] for x in intersection])
+
+    sum1 = sum([vec1[x] ** 2 for x in list(vec1.keys())])
+    sum2 = sum([vec2[x] ** 2 for x in list(vec2.keys())])
+    denominator = math.sqrt(sum1) * math.sqrt(sum2)
+
+    if not denominator:
+        return 0.0
+    else:
+        return float(numerator) / denominator
+
+
+def text_to_vector(text):
+    words = WORD.findall(text)
+    return Counter(words)
+
+template_input_sub=re.sub('\n',' ',template_input)
+template_input_lines=template_input_sub.split('.')
+proof_input_sub=re.sub('\n',' ',proof_input)
+proof_input_lines=proof_input_sub.split('.')
+return_date_line=""
+for line in template_input_lines:
+    if re.search('\[ReturnMailDate\]',line,re.IGNORECASE):
+        
+        return_date_line=line
+        
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
+from collections import Counter
+vector1 = text_to_vector(return_date_line)
+
+for line in proof_input_lines:
+    vector2 = text_to_vector(line)
+    if get_cosine(vector1, vector2)>0.90:
+        datetime_date=list(datefinder.find_dates(line))
+        date=datetime.strftime(datetime_date[0], '%d %B,%Y')
+        print("return date is ,",date)
+    
