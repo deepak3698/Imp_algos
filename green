@@ -53,8 +53,11 @@ def get_green_fields(template_input,proof_input):
     current_year=''
     if date!='':
         datetime_date=list(datefinder.find_dates(date))
-        current_year=str(datetime_date[0].year)
-        date=datetime.strftime(datetime_date[0], '%d %B,%Y')
+        if len(datetime_date)!=0:
+            current_year=str(datetime_date[0].year)
+            date=datetime.strftime(datetime_date[0], '%d %B,%Y')
+        else:
+            print("datefinder could not convert date format to datetime ->"+str(date_re.group()))
 #         print(date,current_year)
     else:
         print("No date found!!!")
