@@ -12,7 +12,7 @@ template_input="""\nP.O 123445,pitrr dd 15222-0330\n done \n [date] \n . If you 
 
 """
 
-proof_input="""\nP.O 123445,pitrr dd 15222-0330\n done \n27 december 2022\n . If you don't contact EDWP by 27 september 2022 , we will assume the above information
+proof_input="""\nP.O 123445,pitrr dd 15222-0330\n done \n27 december 2022\n . If you don't contact EDWP by 27 de abril de 2022 , we will assume the above information
 is correct and you will owe a late Enrollment Penalty (LEP).
 
 Sincerly,
@@ -101,20 +101,32 @@ def get_green_fields(template_input,proof_input):
             
 #         print(cosine_values_dict)
         max_cosine_score=max(cosine_values_dict.keys())
+        return_date=''
         if max_cosine_score>0.80:
             most_similar_return_date_line=cosine_values_dict[max_cosine_score]
 #             print(most_similar_return_date_line)
-            return_string_sim_re_date=re.search('[0-9]+.*?\d+\s*',most_similar_return_date_line,re.IGNORECASE)
-            if return_string_sim_re_date:
-                return_date=return_string_sim_re_date.group()
-                print(return_date)
-            else:
-                return_date=""
+            return_string_sim_re_date=re.findall('\d{1,2}.*?\d{4}',most_similar_return_date_line,re.IGNORECASE)
+            for i in return_string_sim_re_date:
+                re_spanish_month="|".join(dict_dates_spanish.keys())
+#         
+                check_spanish_month=re.search(re_spanish_month,i,re.IGNORECASE)
+                if check_spanish_month:
+                    return_date=i.strip()
+                    break
+                elif re.search('\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{4}|[A-Za-z]{3,12}\s*\d{1,2}\s*[-,]\s*\d{4}|\d{1,2}\s*[A-Za-z]{3,12}\s*[-,]*\s*\d{4}',i):
+                    return_date=i.strip()
+                    break
+                else:
+                    return_date=''
+                    
+            
+        else:
+            return_date=""
 #             datetime_date=list(datefinder.find_dates(most_similar_return_date_line))
 #             if len(datetime_date)!=0:
 #                 return_date=datetime.strftime(datetime_date[0], '%d %B,%Y')
         
-        print("return date is ,",date)
+#         print("return date is ,",date)
     else:
         print("No Return date found!!")
     
