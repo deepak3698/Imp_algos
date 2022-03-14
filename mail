@@ -1,0 +1,9 @@
+Hi Team,
+
+As you maybe aware, the QC service is having some issue with few fonts on the input templates. Currently, the service converts every font into Times New Roman and saves the document into PDF however in the process. some of the words get additional letters and characters introduced and certain symbols change as well. We have been exploring a few options to resolve this issue. Some of the them are listed below:
+
+1. Making use of Unix modules like "unoconv" for converting docx to pdf
+
+2. Exploring VBA scripts for converting docx to pdf 3. Open stackoverflow question for our issue
+
+Unfortunately, we haven't been able to find a solution to this problem and need your suggestion if there is any AWS service that we should explore. Our requirement is to be able to use an AWS service or fibrary to convert dock to pdf without having some extra characters in pdf data.
