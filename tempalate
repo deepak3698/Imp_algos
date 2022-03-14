@@ -1,0 +1,389 @@
+import docx2txt
+import re
+import sys
+from collections import Counter
+import glob
+import pandas as pd
+
+
+def check_bracket_count(myStr):
+
+    open_list=["[","{","("]
+    close_list=["]","}",")"]
+    stack = []
+
+    for i in myStr:
+        if i in open_list:
+            stack.append(i) 
+        elif i in close_list:
+            pos =close_list.index(i)
+            if ((len(stack) > 0) and (open_list[pos] == stack[len(stack)-1])):
+                stack.pop()
+            else:
+                return 0
+
+    if len(stack) == 0:
+        return 1
+    else:
+        return 0
+        
+
+def error_index_conditions (error_index,test):
+
+    forward_index=40
+
+    ERROR_MESSAGE='Bracket missing within these characters ->'
+
+    if error_index+forward_index > len(test) and error_index-forward_index>0:
+        return ERROR_MESSAGE+test[error_index-forward_index:error_index+1] 
+    elif error_index-forward_index <0 and error_index + forward_index<len(test):
+        return ERROR_MESSAGE + test[error_index:error_index + forward_index]
+
+    else: 
+        return ERROR_MESSAGE+test[error_index-forward_index:error_index + forward_index]
+
+def diff_list_keys (l1,l2):
+
+    for i in range(0, len(l1)):
+        for j in range(0, len(l2)):
+            if l1[i]==l2[j]:
+                l1[i]=None
+                l2[j]=None
+
+    return list(filter(None, l2))
+
+def check_balanced_brackets(test):
+    print(10*"*"+"Checking Bracket Count!! "+10*"*")
+    if check_bracket_count(test) : 
+        return "Brackets count seems to be ok!!"
+    stack=[]
+    open_list = ["[","("]
+    close_list = ["]",")"]
+    
+    pos=0
+    for i in range(0,len(test)):
+        
+        if test[i] in open_list:
+            stack.append([test[i],i])
+        elif test[i] in close_list:
+        
+            pos=close_list.index(test[i])
+
+            if ((len(stack) > 0) and (open_list[pos] == stack[len(stack)-1][0])):
+                stack.pop()
+            else:
+                
+                if len(stack)==0:
+                    error_index=i
+                else:
+                    error_index=stack[-1][1]
+                return error_index_conditions(error_index,test)
+#     print(stack)
+    if len(stack) == 0:
+        return "Brackets count seems to be ok!!"
+    else:
+        error_index=stack[-1][1]
+        return error_index_conditions(error_index,test)
+    
+def check_rules(data_passed):
+    
+    
+    warnings=""
+    errors=""
+
+#Ist rule to check if brackets count is same or if they are balanced or not
+    file_data=re.sub(' \d\)'," ",data_passed)
+
+    data_remove_new_line=re.sub('\n'," ",data_passed) 
+    try:
+
+        bracket_check_output=check_balanced_brackets(data_passed)
+        print(bracket_check_output)
+        check_balanced_brackets_count=False
+        if not re.search('Brackets count seems to be ok',bracket_check_output,re.IGNORECASE):
+            check_balanced_brackets_count=True
+            errors+="•"+bracket_check_output+"\n"
+            
+
+    except:
+        errors+="•"+"ERROR! checking count of brackets Please look in the template for BRACKETS\n"
+        print("ERROR! checking count of brackets Please look in the template for BRACKETS")
+
+    print(10*"*"+"Checking for logic part!!"+10*"*") 
+    #2nd RULE : Check Logic part of template
+
+    data_new_line_split=list(filter(None, file_data.split("\n")))
+
+#Assume 1: There is if and populate in all the data Lines
+
+    count_expression=0
+    
+    check_double_bracket_issue=False
+
+    for data_item in data_new_line_split:
+        logic_parts =re.findall('(\[+\(+if)(.*?)(populate\))',data_item,re.IGNORECASE)
+        
+        for logic_part in logic_parts:
+            count_expression+=1
+            
+        # checking Logic part 0
+            
+            if logic_part[0].count('[')>1 or logic_part[0].count('(')>1:
+
+                print("Oops! Double bracket issue found for conditions !! There are more than 1 '(' or '[' at string -> "+"".join(logic_part))
+                errors+="•"+"Double bracket issue found for conditions !!There are more than 1 '(' or '[' at string -> "+"".join(logic_part)+"\n"
+                check_double_bracket_issue=True
+            if logic_part[0][-2].islower():
+
+                print(" 'i' in if is not UpperCase for Logic-> "+"".join(logic_part))
+                errors+="•"+"'i' in if is not UpperCase for Logic-> "+"".join(logic_part)+"\n"
+
+# checking Logic part 1
+
+
+            if re.findall('if', logic_part[1],re.IGNORECASE):
+                print("More than 1 If found in expression ->", logic_part[1]) 
+                errors+="•"+"More than 1 If found in expression ->", logic_part[1]+"\n"
+            if re.findall('f\d+', logic_part[1]): 
+                print("'F is in lower case for expression ->"+logic_part[1])
+                errors+="•"+"'F is in lower case for expression ->"+logic_part[1]+"\n"
+
+#             if re.findall('\w+and|\w+or|and\w+|or\w+', Logic_part[1],re.IGNORECASE):
+#                 print("no space b/w digits and operators ",Logic_part[1]) 
+            and_or_values =re.findall(' and | or ',logic_part[1],re.IGNORECASE) 
+            and_or_count=len(and_or_values)
+            values_variables=re.findall('[A-Za-z0-9_\.$]+', logic_part[1],re.IGNORECASE)
+
+            for value in values_variables:
+
+                if re.search("and", value, re.IGNORECASE):
+
+                    values_variables.remove(value)
+                if re.search('or',value, re.IGNORECASE):
+
+                    values_variables.remove(value)
+
+#             values variables_count=len(values_variables)
+#             operators_count=len(re.findall('[<>-+]', Logic_part[1], re.IGNORECASE))
+            exp_sub=re.sub(' and | or ',' ', logic_part[1], flags=re.IGNORECASE) #
+
+            conditions=re.findall('[A-Za-z0-9]+\s?[=>≠<]\s?\[?[A-Za-z0-9$.]+\]?|[A-Za-z0-9$.]+',exp_sub)
+
+            and_or=re.findall('\s+or\s+|\s+and\s+', logic_part[1],re.IGNORECASE)
+#             print(conditions,and_or)
+            if len(conditions)-1!=len(and_or) and not re.search('PlanName\s?=\s?1st\s?reference', logic_part[1]) and not re.search('and WhoPaysSilverScriptLEP=Member Pays Full or Partial LEP', logic_part[1],re.IGNORECASE):
+                print("Expression seems to be invalid in string -> ","".join(logic_part))
+                errors+="•"+"Expression seems to be invalid in string -> "+"".join(logic_part)+"\n"
+            
+            if logic_part[1][0]!=' ':
+                print("Oops ! No space between If and expression -> "+"".join(logic_part))
+                errors+="•"+"No space between If and expression -> "+"".join(logic_part)+"\n"
+            if re.search('\s{2,}',logic_part[1]):
+                print("Oops ! More than 2 spaces b/w If and Expression ->"+"".join(logic_part))
+                errors+="•"+"More than 2 spaces b/w If and Expression ->"+"".join(logic_part)+"\n"
+            not_required_symbols="logic| of | AND | OR | IS NOT |&|:"
+            if re.search(not_required_symbols,logic_part[1]):
+                print("Oops! Issue with this part of expression It contains  these characters ->"+str(not_required_symbols))
+                errors+="•"+"Issue with this part of expression It contains  these characters ->"+str(not_required_symbols)+"-> "+logic_part[1]+"\n"
+            if logic_part[1][-1]!=' ' or logic_part[1][-2]!=',':
+                print("Oops! No space or comma with this part of expression -> "+"".join(logic_part))
+                errors+="•"+"No space or comma with this part of expression -> "+"".join(logic_part)+"\n"
+            if re.search(",",logic_part[1][1:-2]):
+                print("Oops! Comma found with this part of expression -> "+"".join(logic_part))
+                errors+="•"+"Comma found with this part of expression -> "+"".join(logic_part)+"\n"
+                
+    logic_part_else=re.findall('\(else.*?\)',data_remove_new_line,re.IGNORECASE)
+    if len(logic_part_else)!=0:
+        print("else part in logic -> ",logic_part_else)
+        errors+="•"+"Else part in logic -> ",logic_part_else+"\n"
+        
+        
+    # Assume 2 There is no if in data lines
+    count_populate=data_remove_new_line.count("populate)")
+    count_if=data_remove_new_line.count("(If")
+    if count_if!=count_populate:
+        missing_if_or_populate_count=abs(count_populate-count_if)
+    
+        print(str(missing_if_or_populate_count)+" 'If' or 'populate' seems to be missing or syntax invalid in some of populate expression")
+        errors+="•"+str(missing_if_or_populate_count)+" 'If' or 'populate' seems to be missing or syntax invalid in some of populate expression"+"\n"
+    elif count_if!=count_expression:
+        print("There is a issue with the expressions in template seems like 'If' doesn't start with [(")
+        errors+="•"+"There is a issue with the expressions in template seems like 'If' doesn't start with [("+"\n"
+    
+    # Assume 3: There is word logic in data lines
+    
+    for data_item in data_new_line_split:
+        logic_parts=re.findall('\((logic)(.*?populate\))',data_item,re.IGNORECASE)
+        if len(logic_parts)!=0:
+            print("Word 'logic' found in this part of expression ->","".join(logic_parts[0]))
+            errors+="•"+"Word 'logic' found in this part of expression ->","".join(logic_parts[0])+"\n"
+    # Assume 4: There is no if and populate
+    
+    no_if_and_populate=re.findall('\[\(F\d+[=≠:><].*?\)', data_remove_new_line,re.IGNORECASE)
+
+    if len(no_if_and_populate) != 0:
+        
+        print("No If and populate found for these logics->",no_if_and_populate)
+        errors+="•"+"No If and populate found for these logics->"+",".join(no_if_and_populate)+"\n"
+
+# 3rd RULE : Right syntax for keys
+
+    print (10*"*"+"Checking for Right syntax for keys !!"+10*"*") 
+    search_data_for_keys=re.sub("\[\(if.*?populate|\[\(logic.*?populate|\[.*?return.*?\]","",data_remove_new_line, flags=re.IGNORECASE)
+
+#keys exp_without_brack-re.findoll('[A-Z]{1}[a-z]+[AZ]{1}[o-z]+Fid+", search_data_for_keys)
+
+    keys_exp_without_brack=re.findall('F\d+',search_data_for_keys,re.IGNORECASE)
+
+    keys_exp_without_brack=["[" +s+"]" for s in keys_exp_without_brack]
+
+# keys_exp with brack=re.findatt("\[[AZ](1) [o-=]+[A-2}{1}{a_z]+\]/\[F\d+\]"search_data_for_keys) keys 
+    keys_exp_with_brack=re.findall('\[F\d+\]',search_data_for_keys, re.IGNORECASE)
+
+#keys_error_values-[1 for i, j in zip(keys_exp_without_brack, keys_exp_with brack) (f "I"-6-11-11
+#     print(keys_exp_with_brack,keys_exp_without_brack)
+    keys_error_values=diff_list_keys(keys_exp_with_brack,keys_exp_without_brack)
+    
+    if len(keys_error_values)!=0:
+        print("Issue with keys not in brackets -> ",keys_error_values)
+        errors+="•"+"Issue with keys not in brackets -> "+",".join(keys_error_values)+"\n"
+    keys=re.findall('\[(.*?)\]',data_remove_new_line,re.IGNORECASE)
+    invalid_keys_for_space=[]
+    space_count=0
+    for key in keys:
+        if not re.search('populate|logic|if|\)|\(',key,re.IGNORECASE):
+            space_count=key.count(' ')
+            if space_count>0 or key.count('_'):
+                invalid_keys_for_space.append(key)
+    invalid_keys_with_underscore=re.findall('\[f\d+_f\d+\]',data_remove_new_line,re.IGNORECASE)
+    invalid_keys=invalid_keys_for_space+invalid_keys_with_underscore
+    if len(invalid_keys)>0:
+        print("These Keys are invalid -> ",invalid_keys)
+        errors+="•"+"These Keys are invalid -> "+",".join(invalid_keys)+"\n"
+        
+    all_f_keys=re.findall('(f\d+)',search_data_for_keys,re.IGNORECASE)
+    for key in all_f_keys:
+        if key[0].islower():
+            print(key," Has a lower case 'F'")
+            errors+="•"+key+" Has a lower case 'F'"+"\n"
+    # 7Th Rule : ":" after F8 and F10
+    
+    f8_f10_rule=re.search('Estimado\s?/a\s+\[F8\]\s+\[F10\]|dear\s+\[F8\]\s+\[F10]',data_remove_new_line,re. IGNORECASE)
+
+    if f8_f10_rule:
+
+        if not re.search('\[F8\] \[F10\]:',data_remove_new_line):
+            print("There should be ':' after "+f8_f10_rule.group())
+            warnings+="•"+"There should be ':' after "+f8_f10_rule.group()+"\n"
+            
+    f9_f10_rule=re.search('Estimado\s?/a\s+\[F9\]\s+\[F10\]|dear\s+\[F9\]\s+\[F10]',data_remove_new_line,re. IGNORECASE)
+
+    if f9_f10_rule:
+
+        if not re.search('\[F9\] \[F10\]:',data_remove_new_line):
+            print("There should be ':' after "+f9_f10_rule.group())
+            warnings+="•"+"There should be ':' after "+f9_f10_rule.group()+"\n"
+            
+            
+    # 4th RULE : Address syntax
+    print(10*"*"+"Checking for Address syntax!!"+10*"*")
+    for data_item in data_new_line_split:
+        address_part=re.findall('\[return.*?\]',data_item,re.IGNORECASE)
+        
+        if len(address_part)==4 and not re.search('\[[A-Z]+[a-z]+[A-Z]+\w+\], \[[A-Z]+[a-z]+[A-Z]+\w+\], \[[A-Z]+[a-z]+[A-Z]+\w+\] \[[A-Z]+[a-z]+[A-Z]+\w+\]',data_item.strip()):
+            print("address format seems to be incorrect for string -> "+data_item)
+            warnings+="•"+"Address format seems to be incorrect for string -> "+data_item+"\n"
+        
+
+    #8th Rule: F104 and f105 space and comma
+
+    f104_f105_rule=re.search('\[F104\].*?\[F105\]',data_remove_new_line)
+
+    if f104_f105_rule:
+
+        if not re.search('\[F104\][,] \[F105\]',data_remove_new_line):
+            print("There should be ',' and space between "+f104_f105_rule.group())
+            warnings+="•"+"There should be ',' and space between "+f104_f105_rule.group()+"\n"
+            
+#     for data_item in data_new_line_split:
+#         dash_check=re.search('\[F106\]-\[F107\]', data_item)
+
+#         if dash_check:
+
+#             string_r=re.sub('\[|\]','',dash_check.group())
+
+#             print("replace dash with ", '['+string_r.split('-')[0]+']'+'[(If '+string_r.split('-')[1]+'≠BLANK, populate)-]['+string_r.split('-')[1]+']')
+#             warnings+="replace dash with "+ '['+string_r.split('-')[0]+']'+'[(If '+string_r.split('-')[1]+'≠BLANK, populate)-]['+string_r.split('-')[1]+']'+"\n"
+
+    #6th RULE : Footer issue
+
+    print (10*"*"+"Checking for Footer issue!!"+10*"*")
+
+    footer_with_prop=re.findall('proprietary', data_remove_new_line,re.IGNORECASE)
+
+    if len(footer_with_prop)!=0:
+
+        print("Remove Proprietary from footer !")
+        warnings+="•"+"Remove Proprietary from footer !"+"\n"
+        
+        
+    #9th RULE: Double brackets Error
+    
+    data_remove_new_line=re.sub("\n"," ",data_passed)
+    data_remove_square_brackets=re.sub('\[f\d+\]|\[[A-Za-z0-9]+\]',"",data_remove_new_line,flags=re.IGNORECASE)
+    if_populate_count=len(re.findall('populate\)|suppress\)',data_remove_square_brackets,re.IGNORECASE))
+    
+    double_bracket_counts=0
+
+    open_list=["["]
+    close_list=["]"]
+    stack = []
+
+    for i in data_remove_square_brackets:
+        if i in open_list:
+            stack.append(i) 
+        elif i in close_list:
+            pos =close_list.index(i)
+            if ((len(stack) > 0) and (open_list[pos] == stack[len(stack)-1])):
+                double_bracket_counts+=1
+                stack.pop()
+            else:
+                if not check_balanced_brackets_count:
+                    print("Double Bracket issue for expression may be there in data")
+                    errors+="•"+"Double Bracket issue for expression may be there in data"+"\n"
+#     print(if_populate_count,double_bracket_counts)
+    
+    if if_populate_count!=double_bracket_counts:
+        if not check_double_bracket_issue:
+            print("Double Bracket issue seen at some part of expression")
+            errors+="•"+"Double Bracket issue seen at some part of expression"+"\n"
+    return warnings,errors
+files=glob.glob("*.docx")
+
+print(files)
+df=pd.DataFrame(columns=['FileName','Errors','Warnings'])
+for file in files:
+#     try:
+    if file.startswith('~$'):
+        continue
+    print(10*"*"+"Running file -> "+file+10*"*")
+    data_passed=docx2txt.process(file)
+    
+
+    warnings,errors=check_rules(data_passed)
+    if warnings=='':
+        warnings="No Warnings"
+    if errors=='':
+        errors="No Errors"
+#         df.concat({'FileName':file,'Errors':errors,'Warnings':warnings},ignore_index=True)
+    df.loc[len(df.index)] = [file, errors, warnings] 
+
+        
+#     except:
+#         print("OH no!..Error file name is missing in the path ("+file+") mentioned or error with file format")
+
+try:
+    df.to_excel('Template_Check_results.xlsx')
+    print("Results saved at Template_Check_results.xlsx in your current folder")
+except PermissionError:
+    print("Seems file 'Template_Check_results.xlsx' is open somewhere . Close the file to see the updated results ")
