@@ -1,5 +1,0 @@
-exp_sub=re.sub('or|and','',data)
-conditions=re.findall('[A-Za-z0-9]+[=>≠<][A-Za-z0-9$.]+|[A-Za-z0-9$.]+',exp_sub)
-and_or=re.findall('or|and',data,re.IGNORECASE)
-if len(conditions)-1!=len(and_or):
-    print("error")
