@@ -1,0 +1,66 @@
+import cv2
+
+import imutils
+
+import pytesseract
+ 
+# pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+ 
+#Grab the images you want to compare.
+original = cv2.imread("cv1_page0.png")
+new = cv2.imread("cv1__changed_page0.png")
+
+#resize the images to make them smaller. Bigger image may take a significantly
+#more computing power and time
+# original = imutils.resize(original, height = 600)
+# new = imutils.resize(new, height = 600)
+
+#make a copy of original image so that we can store the
+#difference of 2 images in the same
+diff = original.copy()
+cv2.absdiff(original, new, diff)
+
+
+#converting the difference into grascale
+gray = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+ 
+#increasing the size of differences so we can capture them all
+for i in range(0, 3):
+    dilated = cv2.dilate(gray.copy(), None, iterations= i+ 1)
+
+
+# all values equal to and more than 3 will be 255
+(T, thresh) = cv2.threshold(dilated, 3, 255, cv2.THRESH_BINARY)
+ 
+# now we need to find contours in the binarised image
+cnts = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+cnts = imutils.grab_contours(cnts)
+
+
+
+list_of_text=[]
+
+i=1
+
+cnts=cnts[::-1]
+for c in cnts:
+    # fit a bounding box to the contour
+    (x, y, w, h) = cv2.boundingRect(c)
+    cv2.rectangle(new, (x, y), (x + w, y + h), (0, 255, 0), 2)
+    cropped = new[y:y + h, x:x + w]
+
+    print(f"({i}) X={x} Y={y} W={w} H={h}")
+    text = pytesseract.image_to_string(cropped)
+
+    list_of_text.append(text)
+
+    i+=1
+ 
+# uncomment below 2 lines if you want to
+#view the image press any key to continue
+#write the identified changes to disk
+
+print(list_of_text)
+
+print(len(list_of_text))
+cv2.imwrite("dt1_changes.png", new)
