@@ -1,0 +1,38 @@
+import fitz
+
+file = "test_pdf.pdf"
+  
+# open the file
+pdf_file = fitz.open(file)
+
+i=1
+for page_index in range(len(pdf_file)): 
+    # get the page itself
+    page = pdf_file[page_index]
+    image_list = page.getImageList()
+    print(image_list)
+
+    if image_list:
+        print(f"[+] Found a total of {len(image_list)} images in page {page_index}")
+    else:
+        print("[!] No images found on page", page_index)
+    for image_index, img in enumerate(page.getImageList(), start=1):
+        xref = img[0]
+        #Drawing the image
+        pix = fitz.Pixmap(pdf_file, xref)
+        if pix.n < 5:       # this is GRAY or RGB
+            pix.writePNG(f"dt_{i}_dt.png")
+        else:               # CMYK: convert to RGB first
+            pix1 = fitz.Pixmap(fitz.csRGB, pix)
+            pix1.writePNG(f"dt_{i}_dt.png")
+            pix1 = None
+        pix=None
+        # extract the image bytes
+        base_image = pdf_file.extractImage(xref)
+        # cv2.imwrite(f"new_dt_exp_{i}.png", img)
+
+        i+=1
+          
+        # get the image extension
+        image_ext = base_image["ext"]
+        # print(image_ext)
